@@ -102,6 +102,7 @@ class Route {
     static final RegExp _urlParameter = new RegExp(r'\\{(\w+)(?::([is]))?\\}');
 
     RegExp _urlPattern;
+    bool _parseJson;
     List<String> _parameters = [];
     List<Preprocessor> preprocessors = new List();
     Processor get;
@@ -109,8 +110,9 @@ class Route {
     Processor put;
     Processor delete;
 
-    Route(String url) {
+    Route(String url, {bool parseJson: true}) {
         url = escapeRegex(url);
+        _parseJson = parseJson;
 
         _urlParameter.allMatches(url).forEach((match) {
             var parameter = match.group(1);
@@ -164,7 +166,21 @@ class Route {
         if (httpRequest.method == 'GET' && get != null) {
             return get(request);
         } else if (httpRequest.method == 'POST' && post != null) {
-            return post(request);
+            if (_parseJson) {
+                return httpRequest.toList().then((List<List<int>> buffer) {
+                    var json = new String.fromCharCodes(buffer.expand((i) => i).toList());
+                    request.json = JSON.decode(json);
+                    return post(request).catchError((_) {
+                        httpRequest.response.statusCode = HttpStatus.BAD_REQUEST;
+                        return new Response('Malformed JSON', status: Status.ERROR);
+                    }, test: (e) => e is ArgumentError);
+                }).catchError((_) {
+                    httpRequest.response.statusCode = HttpStatus.BAD_REQUEST;
+                    return new Response('JSON Syntax Error', status: Status.ERROR);
+                }, test: (e) => e is FormatException);
+            } else {
+                return post(request);
+            }
         } else if (httpRequest.method == 'PUT' && put != null) {
             return put(request);
         } else if (httpRequest.method == 'DELETE' && delete != null) {
@@ -179,6 +195,8 @@ class Route {
 class Request {
     final HttpRequest httpRequest;
     final Map<String, String> urlParameters;
+
+    var json;
 
     Request(HttpRequest this.httpRequest, Map<String, String> this.urlParameters);
 }
