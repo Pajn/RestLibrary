@@ -2,7 +2,7 @@ import 'dart:async';
 import 'package:RestLibrary/restlibrary.dart';
 
 void main() {
-    new RestServer(port: 8080)
+    new RestServer()
         ..static('web')
         ..route(new Route('/hello')
                 ..get = helloGet
@@ -12,7 +12,7 @@ void main() {
         ..route(new Route('/hellosession')
                 ..get = helloGetSession
                 ..post = helloPostSession)
-        ..start();
+        ..start(port: 8080);
 }
 
 /// A callbackfunction that will return "Hello, World!", or if the name query parameter is provied

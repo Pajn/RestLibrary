@@ -11,13 +11,11 @@ typedef Future<Response> Processor(Request request);
 
 /// A simple REST server for quickly bringing up basic REST or REST inspired APIs.
 class RestServer {
-    int _port;
     List<Route> _routes = new List();
     List<Preprocessor> _temp_preprocessors = new List();
     VirtualDirectory _staticServer;
 
-    RestServer({int port: 80}) {
-        _port = port;
+    RestServer() {
     }
 
     /// Add a [preprocessor] that it will be called before the callback on subsequent routes.
@@ -51,8 +49,10 @@ class RestServer {
     }
 
     /// Bind the server to a socket and start handling requests.
-    void start() {
-        HttpServer.bind(InternetAddress.ANY_IP_V4, _port).then((server) {
+    void start({InternetAddress address: null, int port: 80}) {
+        address = address != null ? address : InternetAddress.LOOPBACK_IP_V4;
+
+        HttpServer.bind(address, port).then((server) {
             server.listen(handle);
         });
     }
