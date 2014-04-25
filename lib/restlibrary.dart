@@ -167,17 +167,22 @@ class Route {
             return get(request);
         } else if (httpRequest.method == 'POST' && post != null) {
             if (_parseJson) {
-                return httpRequest.toList().then((List<List<int>> buffer) {
-                    var json = new String.fromCharCodes(buffer.expand((i) => i).toList());
-                    request.json = JSON.decode(json);
-                    return post(request).catchError((_) {
+                if (httpRequest.toList() != null) {
+                    return httpRequest.toList().then((List<List<int>> buffer) {
+                        var json = new String.fromCharCodes(buffer.expand((i) => i).toList());
+                        request.json = JSON.decode(json);
+                        return post(request).catchError((_) {
+                            httpRequest.response.statusCode = HttpStatus.BAD_REQUEST;
+                            return new Response('Malformed JSON', status: Status.ERROR);
+                        }, test: (e) => e is ArgumentError);
+                    }).catchError((_) {
                         httpRequest.response.statusCode = HttpStatus.BAD_REQUEST;
-                        return new Response('Malformed JSON', status: Status.ERROR);
-                    }, test: (e) => e is ArgumentError);
-                }).catchError((_) {
-                    httpRequest.response.statusCode = HttpStatus.BAD_REQUEST;
-                    return new Response('JSON Syntax Error', status: Status.ERROR);
-                }, test: (e) => e is FormatException);
+                        return new Response('JSON Syntax Error', status: Status.ERROR);
+                    }, test: (e) => e is FormatException);
+                } else {
+                    request.json = null;
+                    return post(request);
+                }
             } else {
                 return post(request);
             }
