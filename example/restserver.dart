@@ -3,6 +3,7 @@ import 'package:RestLibrary/restlibrary.dart';
 
 void main() {
     new RestServer(port: 8080)
+        ..static('web')
         ..route(new Route('/hello')
                 ..get = helloGet
                 ..post = helloPost)

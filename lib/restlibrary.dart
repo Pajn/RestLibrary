@@ -3,7 +3,7 @@ library RestLibrary;
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'package:collection/equality.dart';
+import 'package:http_server/http_server.dart';
 import 'package:quiver/pattern.dart';
 
 typedef void Preprocessor(HttpRequest request);
@@ -14,6 +14,7 @@ class RestServer {
     int _port;
     List<Route> _routes = new List();
     List<Preprocessor> _temp_preprocessors = new List();
+    VirtualDirectory _staticServer;
 
     RestServer({int port: 80}) {
         _port = port;
@@ -35,6 +36,20 @@ class RestServer {
         _routes.add(route);
     }
 
+    /// Supply a directory to serve static files from
+    void static(String path) {
+        _staticServer = new VirtualDirectory(path)
+            ..allowDirectoryListing = true
+            ..followLinks = true
+            ..errorPageHandler = _send404;
+
+        _staticServer.directoryHandler = (Directory dir, HttpRequest req) {
+            var filePath = '${dir.path}${Platform.pathSeparator}index.html';
+            var file = new File(filePath);
+            _staticServer.serveFile(file, req);
+        };
+    }
+
     /// Bind the server to a socket and start handling requests.
     void start() {
         HttpServer.bind(InternetAddress.ANY_IP_V4, _port).then((server) {
@@ -48,9 +63,8 @@ class RestServer {
     /// If any uncaught exception is caught it will return a 500 Internal server Error.
     void handle(HttpRequest request) {
         try {
-            request.response.headers
-                ..set('Access-Control-Allow-Origin', '*')
-                ..contentType = new ContentType('application', 'json', charset: 'utf-8');
+            request.response.headers..set('Access-Control-Allow-Origin', '*')
+                                    ..contentType = new ContentType('application', 'json', charset: 'utf-8');
 
             var route = _routes.where((route) => route.match(request.uri.path));
 
@@ -58,19 +72,28 @@ class RestServer {
                 request.response.statusCode = HttpStatus.OK;
                 route.first.handle(request).then((response) => request.response.write(response),
                         onError: (e) {
-                            request.response.statusCode = HttpStatus.INTERNAL_SERVER_ERROR;
-                            request.response.write(new Response(e.toString(), status: Status.ERROR));
+                            request.response..statusCode = HttpStatus.INTERNAL_SERVER_ERROR
+                                            ..write(new Response(e.toString(), status: Status.ERROR));
                         }).whenComplete(request.response.close);
+            } else if (_staticServer != null) {
+                _staticServer.serveRequest(request);
             } else {
-                request.response.statusCode = HttpStatus.NOT_FOUND;
-                request.response.write(new Response("not found", status: Status.ERROR));
-                request.response.close();
+                _send404(request);
             }
         } catch (e) {
-            request.response.statusCode = HttpStatus.INTERNAL_SERVER_ERROR;
-            request.response.write(new Response(e.toString(), status: Status.ERROR));
-            request.response.close();
+            request.response..statusCode = HttpStatus.INTERNAL_SERVER_ERROR
+                            ..write(new Response(e.toString(), status: Status.ERROR))
+                            ..close();
         }
+    }
+
+    void _send404(HttpRequest request) {
+        request.response..headers.set('Access-Control-Allow-Origin', '*')
+                        ..headers.contentType = new ContentType('application', 'json', charset: 'utf-8')
+
+                        ..statusCode = HttpStatus.NOT_FOUND
+                        ..write(new Response("not found", status: Status.ERROR))
+                        ..close();
     }
 }
 
@@ -93,7 +116,7 @@ class Route {
             var parameter = match.group(1);
             _parameters.add(parameter);
 
-            String to;
+            var to;
             switch(match.group(2)) {
                 case 'i':
                     to = r'(\d+)';
@@ -107,20 +130,6 @@ class Route {
         });
 
         _urlPattern = new RegExp('^$url/?\$');
-    }
-
-    String expand(Map<String, String> parameters) {
-        if (!const IterableEquality().equals(_parameters, parameters.keys)) {
-            throw new ArgumentError();
-        }
-
-        var path = _urlPattern.pattern;
-
-        for (var parameter in parameters.keys) {
-            path = path.replaceAll('{$parameter}', parameters[parameter]);
-        }
-
-        return path;
     }
 
     /// Checks if the [uri] matches this [Route]
