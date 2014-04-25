@@ -5,7 +5,7 @@ RestLibrary is a simple library for creating REST inspired APIs in Dart with eas
 
 Features:
 * GET, POST, PUT & DELETE support on routes
-* JSEND style responses
+* [JSEND](http://labs.omniti.com/labs/jsend) style responses
 * Serve static files
 * Add preprocessors for authorization
 
