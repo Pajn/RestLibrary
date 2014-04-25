@@ -1,0 +1,9 @@
+name: RestLibrary
+version: 0.0.1
+author: Rasmus Eneman
+description: A simple RestLibrary for quickly setting up a Restserver
+dependencies:
+  collection: any
+  quiver: '>=0.13.0 <0.14.0'
+dev_dependencies:
+  unittest: any
