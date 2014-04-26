@@ -7,7 +7,7 @@ import 'package:http_server/http_server.dart';
 import 'package:quiver/pattern.dart';
 
 typedef void Preprocessor(HttpRequest request);
-typedef Future<Response> Processor(Request request);
+typedef Response Processor(Request request);
 
 /// A simple REST server for quickly bringing up basic REST or REST inspired APIs.
 class RestServer {
@@ -164,14 +164,15 @@ class Route {
         var request = new Request(httpRequest, extractParameters(httpRequest.uri.path));
 
         if (httpRequest.method == 'GET' && get != null) {
-            return get(request);
+            return _call(get, request);
         } else if (httpRequest.method == 'POST' && post != null) {
             if (_parseJson) {
-                if (httpRequest.toList() != null) {
-                    return httpRequest.toList().then((List<List<int>> buffer) {
+                var list = httpRequest.toList();
+                if (list != null) {
+                    return list.then((List<List<int>> buffer) {
                         var json = new String.fromCharCodes(buffer.expand((i) => i).toList());
                         request.json = JSON.decode(json);
-                        return post(request).catchError((_) {
+                        return _call(post, request).catchError((_) {
                             httpRequest.response.statusCode = HttpStatus.BAD_REQUEST;
                             return new Response('Malformed JSON', status: Status.ERROR);
                         }, test: (e) => e is ArgumentError);
@@ -181,20 +182,22 @@ class Route {
                     }, test: (e) => e is FormatException);
                 } else {
                     request.json = null;
-                    return post(request);
+                    return _call(post, request);
                 }
             } else {
-                return post(request);
+                return _call(post, request);
             }
         } else if (httpRequest.method == 'PUT' && put != null) {
-            return put(request);
+            return _call(put, request);
         } else if (httpRequest.method == 'DELETE' && delete != null) {
-            return delete(request);
+            return _call(delete, request);
         } else {
             httpRequest.response.statusCode = HttpStatus.METHOD_NOT_ALLOWED;
             return new Future.sync(() => new Response("Method not allowed", status: Status.ERROR));
         }
     }
+
+    Future<Response> _call(Processor p, Request request) => new Future(() => p(request));
 }
 
 class Request {

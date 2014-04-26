@@ -59,15 +59,14 @@ void main() {
     group('Server and Route, handle preprocessors', () {
         var authFailureProcessor = (_) => throw new AuthorizationException('fail', 'Will always fail.');
 
-        Future<Response> expectNoCall(_) {
+        Response expectNoCall(_) {
             fail('Wrong callback called');
-            return null;
         }
 
         test('adding', () {
             var server = new RestServer()
                 ..route(new Route('/first')
-                    ..get = expectAsync((_) {return new Future.sync(() {});}))
+                    ..get = expectAsync((_) {}))
                 ..preprocessor(authFailureProcessor)
                 ..route(new Route('/second')
                     ..get = expectNoCall);
@@ -75,19 +74,17 @@ void main() {
             var request = new MockHttpRequest()
                 ..uri = new Uri(path: '/first')
                 ..method = 'GET';
-            request.response.closed = () {
-                expectAsync((_) {});
+            request.response.closed = expectAsync(() {
                 expect(request.response.statusCode, equals(HttpStatus.OK));
-            };
+            });
             server.handle(request);
 
             var request2 = new MockHttpRequest()
                 ..uri = new Uri(path: '/second')
                 ..method = 'GET';
-            request2.response.closed = () {
-                expectAsync((_) {});
+            request2.response.closed = expectAsync(() {
                 expect(request2.response.statusCode, equals(HttpStatus.UNAUTHORIZED));
-            };
+            });
             server.handle(request2);
         });
 
@@ -98,24 +95,22 @@ void main() {
                     ..get = expectNoCall)
                 ..removePreprocessor(authFailureProcessor)
                 ..route(new Route('/second')
-                    ..get = expectAsync((_) {return new Future.sync(() {});}));
+                    ..get = expectAsync((_) {}));
 
             var request = new MockHttpRequest()
                 ..uri = new Uri(path: '/first')
                 ..method = 'GET';
-            request.response.closed = () {
-                expectAsync((_) {});
+            request.response.closed = expectAsync(() {
                 expect(request.response.statusCode, equals(HttpStatus.UNAUTHORIZED));
-            };
+            });
             server.handle(request);
 
             var request2 = new MockHttpRequest()
                 ..uri = new Uri(path: '/second')
                 ..method = 'GET';
-            request2.response.closed = () {
-                expectAsync((_) {});
+            request2.response.closed = expectAsync(() {
                 expect(request2.response.statusCode, equals(HttpStatus.OK));
-            };
+            });
             server.handle(request2);
         });
 
@@ -126,24 +121,22 @@ void main() {
                     ..get = expectNoCall)
                 ..clearAllPreprocessors()
                 ..route(new Route('/second')
-                    ..get = expectAsync((_) {return new Future.sync(() {});}));
+                    ..get = expectAsync((_) {}));
 
             var request = new MockHttpRequest()
                 ..uri = new Uri(path: '/first')
                 ..method = 'GET';
-            request.response.closed = () {
-                expectAsync((_) {});
+            request.response.closed = expectAsync(() {
                 expect(request.response.statusCode, equals(HttpStatus.UNAUTHORIZED));
-            };
+            });
             server.handle(request);
 
             var request2 = new MockHttpRequest()
                 ..uri = new Uri(path: '/second')
                 ..method = 'GET';
-            request2.response.closed = () {
-                expectAsync((_) {});
+            request2.response.closed = expectAsync(() {
                 expect(request2.response.statusCode, equals(HttpStatus.OK));
-            };
+            });
             server.handle(request2);
         });
     });
