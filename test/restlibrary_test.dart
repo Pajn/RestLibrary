@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'package:mock/mock.dart';
 import 'package:unittest/unittest.dart';
-import 'package:unittest/mock.dart';
 import 'package:RestLibrary/restlibrary.dart';
 
 class MockHttpHeaders extends Mock implements HttpHeaders {}
@@ -177,9 +177,8 @@ void main() {
     group('Route handle request', () {
         var request;
 
-        Future<Response> expectNoCall(_) {
+        Response expectNoCall(_) {
             fail('Wrong callback called');
-            return null;
         }
 
         setUp(() {
