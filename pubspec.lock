@@ -5,6 +5,10 @@ packages:
     description: collection
     source: hosted
     version: "0.9.1"
+  http:
+    description: http
+    source: hosted
+    version: "0.10.0"
   http_server:
     description: http_server
     source: hosted
