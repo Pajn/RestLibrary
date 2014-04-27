@@ -54,5 +54,12 @@ main() {
                 expect(response.body, equals(JSON.encode({'data': 'Hello, Foo!', 'status': 'success'})));
             }));
         });
+
+        test('Hello Json PUT with name parameter', () {
+            http.put("$host/json", body: '{"name":"Foo"}').then(expectAsync((response) {
+                expect(response.statusCode, equals(200));
+                expect(response.body, equals(JSON.encode({'data': 'Hello, Foo!', 'status': 'success'})));
+            }));
+        });
     });
 }

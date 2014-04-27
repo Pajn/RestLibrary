@@ -70,11 +70,11 @@ class RestServer {
 
             if (route.isNotEmpty) {
                 request.response.statusCode = HttpStatus.OK;
-                route.first.handle(request).then((response) => request.response.write(response),
+                route.first.handle(request).then((response) => request.response.write(response)/*,
                         onError: (e) {
                             request.response..statusCode = HttpStatus.INTERNAL_SERVER_ERROR
                                             ..write(new Response(e.toString(), status: Status.ERROR));
-                        }).whenComplete(request.response.close);
+                        }*/).whenComplete(request.response.close);
             } else if (_staticServer != null) {
                 _staticServer.serveRequest(request);
             } else {
@@ -166,29 +166,19 @@ class Route {
         if (httpRequest.method == 'GET' && get != null) {
             return _call(get, request);
         } else if (httpRequest.method == 'POST' && post != null) {
-            if (_parseJson) {
-                var list = httpRequest.toList();
-                if (list != null) {
-                    return list.then((List<List<int>> buffer) {
-                        var json = new String.fromCharCodes(buffer.expand((i) => i).toList());
-                        request.json = JSON.decode(json);
-                        return _call(post, request).catchError((_) {
-                            httpRequest.response.statusCode = HttpStatus.BAD_REQUEST;
-                            return new Response('Malformed JSON', status: Status.ERROR);
-                        }, test: (e) => e is ArgumentError);
-                    }).catchError((_) {
-                        httpRequest.response.statusCode = HttpStatus.BAD_REQUEST;
-                        return new Response('JSON Syntax Error', status: Status.ERROR);
-                    }, test: (e) => e is FormatException);
-                } else {
-                    request.json = null;
-                    return _call(post, request);
-                }
+            var list;
+            if (_parseJson && (list = httpRequest.toList()) != null) {
+                return _callWithJson(post, request, list);
             } else {
                 return _call(post, request);
             }
         } else if (httpRequest.method == 'PUT' && put != null) {
-            return _call(put, request);
+            var list;
+            if (_parseJson && (list = httpRequest.toList()) != null) {
+                return _callWithJson(put, request, list);
+            } else {
+                return _call(put, request);
+            }
         } else if (httpRequest.method == 'DELETE' && delete != null) {
             return _call(delete, request);
         } else {
@@ -197,7 +187,22 @@ class Route {
         }
     }
 
-    Future<Response> _call(Processor p, Request request) => new Future(() => p(request));
+    Future<Response> _call(Processor processor, Request request) => new Future(() => processor(request));
+
+    dynamic _callWithJson(Processor processor, Request request, Future<List<List<int>>> list) {
+        return list.then((List<List<int>> buffer) {
+            var json = new String.fromCharCodes(buffer.expand((i) => i).toList());
+            request.json = JSON.decode(json);
+
+            return _call(processor, request).catchError((_) {
+                request.httpRequest.response.statusCode = HttpStatus.BAD_REQUEST;
+                return new Response('Malformed JSON', status: Status.ERROR);
+            }, test: (e) => e is ArgumentError);
+        }).catchError((_) {
+            request.httpRequest.response.statusCode = HttpStatus.BAD_REQUEST;
+            return new Response('JSON Syntax Error', status: Status.ERROR);
+        }, test: (e) => e is FormatException);
+    }
 }
 
 class Request {

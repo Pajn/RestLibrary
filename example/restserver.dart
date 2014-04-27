@@ -13,7 +13,8 @@ void main() {
                 ..get = helloGetSession
                 ..post = helloPostSession)
         ..route(new Route('/json')
-                ..post = helloJson)
+                ..post = helloJson
+                ..put = helloJson)
         ..start(port: 8080);
 }
 
