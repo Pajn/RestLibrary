@@ -35,9 +35,9 @@ void main() {
 
             var request = new MockHttpRequest()
                 ..uri = new Uri(path: '/');
-            request.response.closed = () {
+            request.response.closed = expectAsync(() {
                 expect(request.response.statusCode, equals(HttpStatus.NOT_FOUND));
-            };
+            });
             server.handle(request);
         });
 
@@ -49,9 +49,9 @@ void main() {
             var request = new MockHttpRequest()
                 ..uri = new Uri(path: '/test')
                 ..method = 'GET';
-            request.response.closed = () {
+            request.response.closed = expectAsync(() {
                 expect(request.response.statusCode, equals(HttpStatus.INTERNAL_SERVER_ERROR));
-            };
+            });
             server.handle(request);
         });
     });

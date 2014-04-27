@@ -70,11 +70,11 @@ class RestServer {
 
             if (route.isNotEmpty) {
                 request.response.statusCode = HttpStatus.OK;
-                route.first.handle(request).then((response) => request.response.write(response)/*,
+                route.first.handle(request).then((response) => request.response.write(response),
                         onError: (e) {
                             request.response..statusCode = HttpStatus.INTERNAL_SERVER_ERROR
                                             ..write(new Response(e.toString(), status: Status.ERROR));
-                        }*/).whenComplete(request.response.close);
+                        }).whenComplete(request.response.close);
             } else if (_staticServer != null) {
                 _staticServer.serveRequest(request);
             } else {
