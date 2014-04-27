@@ -66,7 +66,7 @@ void main() {
         test('adding', () {
             var server = new RestServer()
                 ..route(new Route('/first')
-                    ..get = expectAsync((_) {}))
+                    ..get = expectAsync((_) => new Response('')))
                 ..preprocessor(authFailureProcessor)
                 ..route(new Route('/second')
                     ..get = expectNoCall);
@@ -95,7 +95,7 @@ void main() {
                     ..get = expectNoCall)
                 ..removePreprocessor(authFailureProcessor)
                 ..route(new Route('/second')
-                    ..get = expectAsync((_) {}));
+                    ..get = expectAsync((_) => new Response('')));
 
             var request = new MockHttpRequest()
                 ..uri = new Uri(path: '/first')
@@ -121,7 +121,7 @@ void main() {
                     ..get = expectNoCall)
                 ..clearAllPreprocessors()
                 ..route(new Route('/second')
-                    ..get = expectAsync((_) {}));
+                    ..get = expectAsync((_) => new Response('')));
 
             var request = new MockHttpRequest()
                 ..uri = new Uri(path: '/first')

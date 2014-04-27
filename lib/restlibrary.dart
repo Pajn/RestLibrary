@@ -63,37 +63,53 @@ class RestServer {
     /// If any uncaught exception is caught it will return a 500 Internal server Error.
     void handle(HttpRequest request) {
         try {
-            request.response.headers..set('Access-Control-Allow-Origin', '*')
-                                    ..contentType = new ContentType('application', 'json', charset: 'utf-8');
-
             var route = _routes.where((route) => route.match(request.uri.path));
 
             if (route.isNotEmpty) {
-                request.response.statusCode = HttpStatus.OK;
-                route.first.handle(request).then((response) => request.response.write(response),
-                        onError: (e) {
-                            request.response..statusCode = HttpStatus.INTERNAL_SERVER_ERROR
-                                            ..write(new Response(e.toString(), status: Status.ERROR));
-                        }).whenComplete(request.response.close);
+                _setHeaders(request);
+
+                route.first.handle(request).then((response) {
+                    if (request.response.statusCode == null) {
+                        if (response != null && response.status == Status.SUCCESS) {
+                            request.response.statusCode = HttpStatus.OK;
+                        } else {
+                            _send500(request, new ArgumentError('No response returned'));
+                        }
+                    }
+                    request.response..write(response)
+                                    ..close();
+                }, onError: (e) {
+                    _send500(request, e);
+                });
             } else if (_staticServer != null) {
                 _staticServer.serveRequest(request);
             } else {
                 _send404(request);
             }
         } catch (e) {
-            request.response..statusCode = HttpStatus.INTERNAL_SERVER_ERROR
-                            ..write(new Response(e.toString(), status: Status.ERROR))
-                            ..close();
+            _send500(request, e);
         }
     }
 
     void _send404(HttpRequest request) {
-        request.response..headers.set('Access-Control-Allow-Origin', '*')
-                        ..headers.contentType = new ContentType('application', 'json', charset: 'utf-8')
+        _setHeaders(request);
 
-                        ..statusCode = HttpStatus.NOT_FOUND
-                        ..write(new Response("not found", status: Status.ERROR))
+        request.response..statusCode = HttpStatus.NOT_FOUND
+            ..write(new Response("not found", status: Status.ERROR))
+            ..close();
+    }
+
+    void _send500(HttpRequest request, Error e) {
+        _setHeaders(request);
+
+        request.response..statusCode = HttpStatus.INTERNAL_SERVER_ERROR
+                        ..write(new Response(e.toString(), status: Status.ERROR))
                         ..close();
+    }
+
+    void _setHeaders(HttpRequest request) {
+        request.response..headers.set('Access-Control-Allow-Origin', '*')
+                        ..headers.contentType = new ContentType('application', 'json', charset: 'utf-8');
     }
 }
 
