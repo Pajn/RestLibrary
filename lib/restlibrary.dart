@@ -15,9 +15,6 @@ class RestServer {
     List<Preprocessor> _temp_preprocessors = new List();
     VirtualDirectory _staticServer;
 
-    RestServer() {
-    }
-
     /// Add a [preprocessor] that it will be called before the callback on subsequent routes.
     void preprocessor(Preprocessor preprocessor) => _temp_preprocessors.add(preprocessor);
 
