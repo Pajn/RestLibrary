@@ -194,6 +194,21 @@ class Route {
             }
         } else if (httpRequest.method == 'DELETE' && delete != null) {
             return _call(delete, request);
+        } else if (httpRequest.method == 'OPTIONS') {
+            var allowedMethods = [];
+            allowedMethods.add((get != null) ? 'GET' : null);
+            allowedMethods.add((post != null) ? 'POST' : null);
+            allowedMethods.add((put != null) ? 'PUT' : null);
+            allowedMethods.add((delete != null) ? 'DELETE' : null);
+            allowedMethods = allowedMethods.where((method) => method != null);
+            
+            var response = httpRequest.response;
+
+            response.headers.add('Access-Control-Allow-Methods', allowedMethods.join(', '));
+            response.headers.add('Access-Control-Allow-Headers',
+                    httpRequest.headers['Access-Control-Request-Headers']);
+            
+            return new Future.sync(() => new Response(''));
         } else {
             httpRequest.response.statusCode = HttpStatus.METHOD_NOT_ALLOWED;
             return new Future.sync(() => new Response("Method not allowed", status: Status.ERROR));
