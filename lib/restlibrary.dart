@@ -32,10 +32,11 @@ class RestServer {
     }
 
     /// Supply a directory to serve static files from
-    void static(String path) {
+    void static(String path, {bool jailRoot: true}) {
         _staticServer = new VirtualDirectory(path)
             ..allowDirectoryListing = true
             ..followLinks = true
+            ..jailRoot = jailRoot
             ..errorPageHandler = _send404;
 
         _staticServer.directoryHandler = (Directory dir, HttpRequest req) {
