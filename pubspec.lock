@@ -20,7 +20,7 @@ packages:
   mime:
     description: mime
     source: hosted
-    version: "0.9.0"
+    version: "0.9.0+1"
   mock:
     description: mock
     source: hosted
@@ -40,4 +40,4 @@ packages:
   unittest:
     description: unittest
     source: hosted
-    version: "0.10.1+2"
+    version: "0.11.0"

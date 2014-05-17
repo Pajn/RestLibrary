@@ -4,6 +4,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:http_server/http_server.dart';
+import "package:path/path.dart";
 import 'package:quiver/pattern.dart';
 
 typedef void Preprocessor(HttpRequest request);
@@ -11,8 +12,11 @@ typedef Response Processor(Request request);
 
 /// A simple REST server for quickly bringing up basic REST or REST inspired APIs.
 class RestServer {
-    List<Route> _routes = new List();
-    List<Preprocessor> _temp_preprocessors = new List();
+    List<String> clientRoutes = [];
+    List<Route> _routes = [];
+    List<Preprocessor> _temp_preprocessors = [];
+    bool _staticJailRoot;
+    String _staticPath;
     VirtualDirectory _staticServer;
 
     /// Add a [preprocessor] that it will be called before the callback on subsequent routes.
@@ -26,13 +30,15 @@ class RestServer {
 
     /// Add a route. If any preprocessors have been added before, they will be called on this route.
     void route(Route route) {
-        //var route = new Route(path, _temp_authorizations.toList());
         route.preprocessors = _temp_preprocessors.toList();
         _routes.add(route);
     }
 
     /// Supply a directory to serve static files from
     void static(String path, {bool jailRoot: true}) {
+        _staticPath = path;
+        _staticJailRoot = jailRoot;
+
         _staticServer = new VirtualDirectory(path)
             ..allowDirectoryListing = true
             ..followLinks = true
@@ -44,6 +50,8 @@ class RestServer {
             var file = new File(filePath);
             _staticServer.serveFile(file, req);
         };
+
+        _staticServer.errorPageHandler = _checkClientRoute;
     }
 
     /// Bind the server to a socket and start handling requests.
@@ -87,6 +95,65 @@ class RestServer {
         } catch (e) {
             _send500(request, e);
         }
+    }
+
+    void _checkClientRoute(HttpRequest request) {
+        var path = request.uri.path;
+
+        // Don't allow navigating up paths.
+        if (path.split('/').contains('..')) {
+            return _send404(request);
+        }
+
+        var route = clientRoutes.firstWhere((alias) => path.startsWith(alias), orElse: () => null);
+        if (route == null) {
+            return _send404(request);
+        }
+        path = path.substring(route.length);
+        if (path.startsWith('/')) {
+            path = path.substring(1);
+        }
+
+        _handleResource(path, request);
+    }
+
+    void _handleResource(String path, HttpRequest request) {
+        path = normalize(path);
+
+        // If we jail to root, the relative path can never go up.
+        if (_staticJailRoot && split(path).first == "..") {
+            return _send404(request);
+        };
+
+        String fullPath = join(_staticPath, path);
+        FileSystemEntity.type(fullPath, followLinks: false).then((type) {
+            switch (type) {
+                case FileSystemEntityType.FILE:
+                    request.response.statusCode = HttpStatus.OK;
+                    return _staticServer.serveFile(new File(fullPath), request);
+
+                case FileSystemEntityType.DIRECTORY:
+                    request.response.statusCode = HttpStatus.OK;
+                    fullPath = '$fullPath${Platform.pathSeparator}index.html';
+                    return _staticServer.serveFile(new File(fullPath), request);
+
+                case FileSystemEntityType.LINK:
+                    return new Link(fullPath).target().then((target) {
+                        String targetPath = normalize(target);
+                        if (isAbsolute(targetPath)) {
+                            // If we jail to root, the path can never be absolute.
+                            if (_staticJailRoot) return null;
+                            return _handleResource(targetPath, request);
+                        } else {
+                            targetPath = join(dirname(path), targetPath);
+                            return _handleResource(targetPath, request);
+                        }
+                    });
+
+                default:
+                    return _send404(request);
+            }
+        });
     }
 
     void _send404(HttpRequest request) {
@@ -202,13 +269,13 @@ class Route {
             allowedMethods.add((put != null) ? 'PUT' : null);
             allowedMethods.add((delete != null) ? 'DELETE' : null);
             allowedMethods = allowedMethods.where((method) => method != null);
-            
+
             var response = httpRequest.response;
 
             response.headers.add('Access-Control-Allow-Methods', allowedMethods.join(', '));
             response.headers.add('Access-Control-Allow-Headers',
                     httpRequest.headers['Access-Control-Request-Headers']);
-            
+
             return new Future.sync(() => new Response(''));
         } else {
             httpRequest.response.statusCode = HttpStatus.METHOD_NOT_ALLOWED;
