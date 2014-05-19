@@ -7,7 +7,7 @@ import 'package:http_server/http_server.dart';
 import "package:path/path.dart";
 import 'package:quiver/pattern.dart';
 
-typedef void Preprocessor(HttpRequest request);
+typedef Preprocessor(HttpRequest request);
 typedef Response Processor(Request request);
 
 /// A simple REST server for quickly bringing up basic REST or REST inspired APIs.
@@ -164,7 +164,7 @@ class RestServer {
             ..close();
     }
 
-    void _send500(HttpRequest request, Error e) {
+    void _send500(HttpRequest request, e) {
         _setHeaders(request);
 
         request.response..statusCode = HttpStatus.INTERNAL_SERVER_ERROR
@@ -235,52 +235,63 @@ class Route {
     /// Will first run all [preprocessors] associated with this route.
     /// Will then call the correct callback if set, else it will return a Method Not Allowed error.
     Future<Response> handle(HttpRequest httpRequest) {
-        try {
-            preprocessors.forEach((preprocessor) => preprocessor(httpRequest));
-        } on AuthorizationException catch (e) {
-            httpRequest.response.statusCode = HttpStatus.UNAUTHORIZED;
-            return new Future.sync(() => new Response(e.toString(), status: Status.FAIL));
-        }
-
-        var request = new Request(httpRequest, extractParameters(httpRequest.uri.path));
-
-        if (httpRequest.method == 'GET' && get != null) {
-            return _call(get, request);
-        } else if (httpRequest.method == 'POST' && post != null) {
-            var list;
-            if (_parseJson && (list = httpRequest.toList()) != null) {
-                return _callWithJson(post, request, list);
+        var runningPreprocessors = preprocessors.map((preprocessor) =>
+                                                        new Future(() => preprocessor(httpRequest))
+                                                    );
+        
+        return Future.wait(runningPreprocessors).then((_) {
+            
+            var request = new Request(httpRequest, extractParameters(httpRequest.uri.path));
+    
+            if (httpRequest.method == 'GET' && get != null) {
+                return _call(get, request);
+            } else if (httpRequest.method == 'POST' && post != null) {
+                var list;
+                if (_parseJson && (list = httpRequest.toList()) != null) {
+                    return _callWithJson(post, request, list);
+                } else {
+                    return _call(post, request);
+                }
+            } else if (httpRequest.method == 'PUT' && put != null) {
+                var list;
+                if (_parseJson && (list = httpRequest.toList()) != null) {
+                    return _callWithJson(put, request, list);
+                } else {
+                    return _call(put, request);
+                }
+            } else if (httpRequest.method == 'DELETE' && delete != null) {
+                return _call(delete, request);
+            } else if (httpRequest.method == 'OPTIONS') {
+                return _respondToCorsRequest(httpRequest);
             } else {
-                return _call(post, request);
+                httpRequest.response.statusCode = HttpStatus.METHOD_NOT_ALLOWED;
+                return new Response("Method not allowed", status: Status.ERROR);
             }
-        } else if (httpRequest.method == 'PUT' && put != null) {
-            var list;
-            if (_parseJson && (list = httpRequest.toList()) != null) {
-                return _callWithJson(put, request, list);
+        }).catchError((e) {
+            if (e is AuthorizationException) {
+                httpRequest.response.statusCode = HttpStatus.UNAUTHORIZED;
+                return new Response(e.toString(), status: Status.FAIL);
             } else {
-                return _call(put, request);
+                throw e;
             }
-        } else if (httpRequest.method == 'DELETE' && delete != null) {
-            return _call(delete, request);
-        } else if (httpRequest.method == 'OPTIONS') {
-            var allowedMethods = [];
-            allowedMethods.add((get != null) ? 'GET' : null);
-            allowedMethods.add((post != null) ? 'POST' : null);
-            allowedMethods.add((put != null) ? 'PUT' : null);
-            allowedMethods.add((delete != null) ? 'DELETE' : null);
-            allowedMethods = allowedMethods.where((method) => method != null);
+        });
+    }
+    
+    Response _respondToCorsRequest(HttpRequest httpRequest) {
+        var allowedMethods = [];
+        allowedMethods.add((get != null) ? 'GET' : null);
+        allowedMethods.add((post != null) ? 'POST' : null);
+        allowedMethods.add((put != null) ? 'PUT' : null);
+        allowedMethods.add((delete != null) ? 'DELETE' : null);
+        allowedMethods = allowedMethods.where((method) => method != null);
 
-            var response = httpRequest.response;
+        var response = httpRequest.response;
 
-            response.headers.add('Access-Control-Allow-Methods', allowedMethods.join(', '));
-            response.headers.add('Access-Control-Allow-Headers',
-                    httpRequest.headers['Access-Control-Request-Headers']);
+        response.headers.add('Access-Control-Allow-Methods', allowedMethods.join(', '));
+        response.headers.add('Access-Control-Allow-Headers',
+                httpRequest.headers['Access-Control-Request-Headers']);
 
-            return new Future.sync(() => new Response(''));
-        } else {
-            httpRequest.response.statusCode = HttpStatus.METHOD_NOT_ALLOWED;
-            return new Future.sync(() => new Response("Method not allowed", status: Status.ERROR));
-        }
+        return new Response('');
     }
 
     Future<Response> _call(Processor processor, Request request) => new Future(() => processor(request));

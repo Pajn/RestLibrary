@@ -59,9 +59,7 @@ void main() {
     group('Server and Route, handle preprocessors', () {
         var authFailureProcessor = (_) => throw new AuthorizationException('fail', 'Will always fail.');
 
-        Response expectNoCall(_) {
-            fail('Wrong callback called');
-        }
+        expectNoCall(_) => fail('Wrong callback called');
 
         test('adding', () {
             var server = new RestServer()
@@ -241,12 +239,12 @@ void main() {
         test('with authorization failure', () {
             new Route('/')
                 ..preprocessors = [(_) => throw new AuthorizationException('fail', 'Will always fail.')]
-                ..handle(request).then((response) {
+                ..handle(request).then(expectAsync((response) {
                     expect(JSON.decode(response.toString()),
                     equals({'data': 'Authorization error (fail): Will always fail.', 'status': 'fail'}));
 
                     expect(request.response.statusCode, equals(HttpStatus.UNAUTHORIZED));
-                });
+                }));
         });
 
         test('with with url parameters', () {
