@@ -298,7 +298,7 @@ class Route {
 
     dynamic _callWithJson(Processor processor, Request request, Future<List<List<int>>> list) {
         return list.then((List<List<int>> buffer) {
-            var json = new String.fromCharCodes(buffer.expand((i) => i).toList());
+            var json = UTF8.decode(buffer.expand((i) => i).toList());
             request.json = JSON.decode(json);
 
             return _call(processor, request).catchError((_) {
@@ -315,6 +315,7 @@ class Route {
 class Request {
     final HttpRequest httpRequest;
     final Map<String, String> urlParameters;
+    final Map<String, String> preprocessorData = {};
 
     var json;
 
