@@ -1,28 +1,7 @@
-import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'package:mock/mock.dart';
 import 'package:unittest/unittest.dart';
 import 'package:RestLibrary/restlibrary.dart';
-
-class MockHttpHeaders extends Mock implements HttpHeaders {}
-class MockHttpResponse extends Mock implements HttpResponse {
-    int statusCode;
-    Function closed;
-    HttpHeaders headers = new MockHttpHeaders();
-
-    Future close() {
-        if (closed != null) {
-            closed();
-        }
-        return null;
-    }
-}
-class MockHttpRequest extends Mock implements HttpRequest {
-    String method;
-    Uri uri;
-    var response = new MockHttpResponse();
-}
 
 
 void main() {
@@ -30,15 +9,11 @@ void main() {
 
     group('Server handle', () {
         test('unregisterd route', () {
-            var server = new RestServer()
-                ..route(new Route('/test'));
+            var server = new RestServer();
 
-            var request = new MockHttpRequest()
-                ..uri = new Uri(path: '/');
-            request.response.closed = expectAsync(() {
-                expect(request.response.statusCode, equals(HttpStatus.NOT_FOUND));
-            });
-            server.handle(request);
+            server.handle(new Request('GET', '/')).then(expectAsync((response) {
+                expect(response.toString(), equals('{"status":"error","statusCode":404,"message":"Not found"}'));
+            }));
         });
 
         test('uncaught error', () {
@@ -46,13 +21,9 @@ void main() {
                 ..route(new Route('/test')
                     ..get = (_) => throw new Exception());
 
-            var request = new MockHttpRequest()
-                ..uri = new Uri(path: '/test')
-                ..method = 'GET';
-            request.response.closed = expectAsync(() {
-                expect(request.response.statusCode, equals(HttpStatus.INTERNAL_SERVER_ERROR));
-            });
-            server.handle(request);
+            server.handle(new Request('GET', '/test')).then(expectAsync((response) {
+                expect(response.toString(), equals('{"status":"error","statusCode":500,"message":"Exception"}'));
+            }));
         });
     });
 
@@ -69,21 +40,14 @@ void main() {
                 ..route(new Route('/second')
                     ..get = expectNoCall);
 
-            var request = new MockHttpRequest()
-                ..uri = new Uri(path: '/first')
-                ..method = 'GET';
-            request.response.closed = expectAsync(() {
-                expect(request.response.statusCode, equals(HttpStatus.OK));
-            });
-            server.handle(request);
 
-            var request2 = new MockHttpRequest()
-                ..uri = new Uri(path: '/second')
-                ..method = 'GET';
-            request2.response.closed = expectAsync(() {
-                expect(request2.response.statusCode, equals(HttpStatus.UNAUTHORIZED));
-            });
-            server.handle(request2);
+            server.handle(new Request('GET', '/first')).then(expectAsync((response) {
+                expect(response.toString(), equals('{"data":"","status":"success","statusCode":200}'));
+            }));
+
+            server.handle(new Request('GET', '/second')).then(expectAsync((response) {
+                expect(response.toString(), equals('{"status":"error","statusCode":403,"message":"Authorization error (fail): Will always fail."}'));
+            }));
         });
 
         test('removing', () {
@@ -95,21 +59,14 @@ void main() {
                 ..route(new Route('/second')
                     ..get = expectAsync((_) => new Response('')));
 
-            var request = new MockHttpRequest()
-                ..uri = new Uri(path: '/first')
-                ..method = 'GET';
-            request.response.closed = expectAsync(() {
-                expect(request.response.statusCode, equals(HttpStatus.UNAUTHORIZED));
-            });
-            server.handle(request);
+            server.handle(new Request('GET', '/first')).then(expectAsync((response) {
+                expect(response.toString(), equals('{"status":"error","statusCode":403,"message":"Authorization error (fail): Will always fail."}'));
+            }));
 
-            var request2 = new MockHttpRequest()
-                ..uri = new Uri(path: '/second')
-                ..method = 'GET';
-            request2.response.closed = expectAsync(() {
-                expect(request2.response.statusCode, equals(HttpStatus.OK));
-            });
-            server.handle(request2);
+
+            server.handle(new Request('GET', '/second')).then(expectAsync((response) {
+                expect(response.toString(), equals('{"data":"","status":"success","statusCode":200}'));
+            }));
         });
 
         test('clearing', () {
@@ -121,21 +78,14 @@ void main() {
                 ..route(new Route('/second')
                     ..get = expectAsync((_) => new Response('')));
 
-            var request = new MockHttpRequest()
-                ..uri = new Uri(path: '/first')
-                ..method = 'GET';
-            request.response.closed = expectAsync(() {
-                expect(request.response.statusCode, equals(HttpStatus.UNAUTHORIZED));
-            });
-            server.handle(request);
+            server.handle(new Request('GET', '/first')).then(expectAsync((response) {
+                expect(response.toString(), equals('{"status":"error","statusCode":403,"message":"Authorization error (fail): Will always fail."}'));
+            }));
 
-            var request2 = new MockHttpRequest()
-                ..uri = new Uri(path: '/second')
-                ..method = 'GET';
-            request2.response.closed = expectAsync(() {
-                expect(request2.response.statusCode, equals(HttpStatus.OK));
-            });
-            server.handle(request2);
+
+            server.handle(new Request('GET', '/second')).then(expectAsync((response) {
+                expect(response.toString(), equals('{"data":"","status":"success","statusCode":200}'));
+            }));
         });
     });
 
@@ -169,22 +119,18 @@ void main() {
 
     test('Route extract parameters', () {
         var route = new Route('/{a}/{b:i}');
-        expect(route.extractParameters('/ten/10'), equals({'a': 'ten', 'b': '10'}));
+        expect(route.extractUrlParameters('/ten/10'), equals({'a': 'ten', 'b': '10'}));
     });
 
     group('Route handle request', () {
         var request;
 
-        Response expectNoCall(_) {
+        expectNoCall(_) {
             fail('Wrong callback called');
         }
 
-        setUp(() {
-            request = new MockHttpRequest()..uri = new Uri(path: '/');
-        });
-
         test('get', () {
-            request.method = 'GET';
+            request = new Request('GET', '/');
 
             new Route('/')
                 ..get = expectAsync((_) {})
@@ -195,7 +141,7 @@ void main() {
         });
 
         test('post', () {
-            request.method = 'POST';
+            request = new Request('POST', '/');
 
             new Route('/')
                 ..get = expectNoCall
@@ -206,7 +152,7 @@ void main() {
         });
 
         test('put', () {
-            request.method = 'PUT';
+            request = new Request('PUT', '/');
 
             new Route('/')
                 ..get = expectNoCall
@@ -217,7 +163,7 @@ void main() {
         });
 
         test('delete', () {
-            request.method = 'DELETE';
+            request = new Request('DELETE', '/');
 
             new Route('/')
                 ..get = expectNoCall
@@ -229,10 +175,11 @@ void main() {
 
         test('non supported method', () {
             new Route('/').handle(request).then((response) {
-                expect(JSON.decode(response.toString()),
-                equals({'status': 'error', 'message': 'Method not allowed'}));
-
-                expect(request.response.statusCode, equals(HttpStatus.METHOD_NOT_ALLOWED));
+                expect(JSON.decode(response.toString()), equals({
+                    'status': 'error',
+                    'statusCode': HttpStatus.METHOD_NOT_ALLOWED,
+                    'message': 'Method not allowed'
+                }));
             });
         });
 
@@ -240,17 +187,16 @@ void main() {
             new Route('/')
                 ..preprocessors = [(_) => throw new AuthorizationException('fail', 'Will always fail.')]
                 ..handle(request).then(expectAsync((response) {
-                    expect(JSON.decode(response.toString()),
-                    equals({'data': 'Authorization error (fail): Will always fail.', 'status': 'fail'}));
-
-                    expect(request.response.statusCode, equals(HttpStatus.UNAUTHORIZED));
+                    expect(JSON.decode(response.toString()), equals({
+                        'status': 'error',
+                        'statusCode': HttpStatus.FORBIDDEN,
+                        'message': 'Authorization error (fail): Will always fail.',
+                    }));
                 }));
         });
 
         test('with with url parameters', () {
-            request = new MockHttpRequest()
-                ..method = 'GET'
-                ..uri = new Uri(path: '/test');
+            request = new Request('GET', '/test');
 
             new Route('/{test}')
                 ..get = expectAsync((Request r) => expect(r.urlParameters['test'], equals('test')))
@@ -258,11 +204,15 @@ void main() {
         });
 
         test('provides a correct Request object', () {
-            request.method = 'GET';
+            request = new Request('GET', '/');
 
             new Route('/')
                 ..get = (Request r) {
-                    expect(r.httpRequest, equals(request));
+                    expect(r.body, isNull);
+                    expect(r.path, equals('/'));
+                    expect(r.method, equals('GET'));
+                    expect(r.preprocessorData, equals({}));
+                    expect(r.queryParameters, equals({}));
                     expect(r.urlParameters, equals({}));
                 }
                 ..handle(request);
@@ -272,17 +222,17 @@ void main() {
     group('Response.toString() produces a correct result on', () {
         test('success', () {
             expect(JSON.decode(new Response('test').toString()),
-            equals({'data': 'test', 'status': 'success'}));
+            equals({'data': 'test', 'status': 'success', 'statusCode': HttpStatus.OK}));
         });
 
         test('fail', () {
-            expect(JSON.decode(new Response(1, status: Status.FAIL).toString()),
-            equals({'data': 1, 'status': 'fail'}));
+            expect(JSON.decode(new Response(1, status: Status.FAIL, statusCode: HttpStatus.BAD_REQUEST).toString()),
+            equals({'data': 1, 'status': 'fail', 'statusCode': HttpStatus.BAD_REQUEST}));
         });
 
         test('error', () {
-            expect(JSON.decode(new Response([1, 2, 3], status: Status.ERROR).toString()),
-            equals({'status': 'error', 'message': [1, 2, 3]}));
+            expect(JSON.decode(new Response([1, 2, 3], status: Status.ERROR, statusCode: HttpStatus.INTERNAL_SERVER_ERROR).toString()),
+            equals({'status': 'error', 'statusCode': HttpStatus.INTERNAL_SERVER_ERROR, 'message': [1, 2, 3]}));
         });
     });
 }
