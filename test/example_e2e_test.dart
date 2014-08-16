@@ -98,5 +98,30 @@ main() {
                 expect(response.body, equals(JSON.encode({'status': 'error', 'statusCode': 405, 'message': 'Method not allowed'})));
             }));
         });
+
+        test('Hello private', () {
+            http.get("$host/private?password=secret").then(expectAsync((response) {
+                expect(response.statusCode, equals(200));
+                expect(response.body, equals(JSON.encode({'data': 'Hello, World!', 'status': 'success', 'statusCode': 200})));
+            }));
+        });
+
+        test('Hello Get with name parameter', () {
+            http.get("$host/private?password=secret&name=Foo").then(expectAsync((response) {
+                expect(response.statusCode, equals(200));
+                expect(response.body, equals(JSON.encode({'data': 'Hello, Foo!', 'status': 'success', 'statusCode': 200})));
+            }));
+        });
+
+        test('Hello private without password', () {
+            http.get("$host/private").then(expectAsync((response) {
+                expect(response.statusCode, equals(403));
+                expect(response.body, equals(JSON.encode({
+                    "status": "error",
+                    "statusCode": 403,
+                    "message": "Authorization error (Wrong password): The password is secret"
+                })));
+            }));
+        });
     });
 }

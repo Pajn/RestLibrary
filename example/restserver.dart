@@ -9,7 +9,10 @@ void main() {
                 ..get = helloGetUrl)
         ..route(new Route('/json')
                 ..post = helloJson
-                ..put = helloJson);
+                ..put = helloJson)
+        ..preprocessor(checkPassword)
+        ..route(new Route('/private')
+                ..get = helloGet);
     
     new HttpTransport(restServer, port: 8080)
         ..static('web');
@@ -44,4 +47,11 @@ Response helloJson(Request request) {
     if (name == null) { name = 'World'; }
 
     return new Response("Hello, $name!");
+}
+
+/// A preprocessor that throws [AuthorizationException] if the password is not correct
+checkPassword(Request request) {
+    if (request.queryParameters['password'] != 'secret') {
+        throw new AuthorizationException('Wrong password', 'The password is secret');
+    }
 }
