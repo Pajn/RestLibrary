@@ -1,5 +1,7 @@
 part of RestLibrary;
 
+typedef WebSocketUpgradeRequestCallback(HttpRequest request);
+
 class HttpTransport {
     RestServer _server;
     
@@ -7,6 +9,9 @@ class HttpTransport {
     bool _staticJailRoot;
     String _staticPath;
     VirtualDirectory _staticServer;
+
+    WebSocketUpgradeRequestCallback _webSocketCallback;
+    String _webSocketPath;
 
     /// Bind the server to a socket and start handling requests.
     HttpTransport(this._server, {InternetAddress address: null, int port: 80}) {
@@ -36,6 +41,11 @@ class HttpTransport {
         };
     }
 
+    void webSocket(String path, WebSocketUpgradeRequestCallback callback) {
+        _webSocketPath = path;
+        _webSocketCallback = callback;
+    }
+
     /// Is called internally, there are usually no reason to call this manually.
     ///
     /// Will call the matching route if it exists, else it will return a 404 Not Found Error.
@@ -46,6 +56,8 @@ class HttpTransport {
         // Don't allow navigating up paths.
         if (request.uri.path.split('/').contains('..')) {
             _send404(request);
+        } else if (_webSocketPath != null && request.uri.path == _webSocketPath && WebSocketTransformer.isUpgradeRequest(request)) {
+            _webSocketCallback(request);
         } else if (_staticServer != null && _checkClientRoute(request)) {
             _serveClientRoute(request);
         } else {
