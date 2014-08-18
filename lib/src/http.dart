@@ -14,7 +14,7 @@ class HttpTransport {
     String _webSocketPath;
 
     /// Bind the server to a socket and start handling requests.
-    HttpTransport(this._server, {InternetAddress address: null, int port: 80}) {
+    HttpTransport(this._server, {address: null, int port: 80}) {
         address = address != null ? address : InternetAddress.LOOPBACK_IP_V4;
 
         HttpServer.bind(address, port).then((server) {
