@@ -15,7 +15,7 @@ void main() {
                 ..get = helloGet);
     
     new HttpTransport(restServer, port: 8080)
-        ..static('web');
+        ..static('web', clientRoutes: ['/client']);
 }
 
 /// A callback function that will return "Hello, World!", or if the name query parameter is provided

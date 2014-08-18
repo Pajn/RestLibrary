@@ -80,9 +80,25 @@ main() {
     </body>
 </html>
 '''));
-            }, count: 2);
+            }, count: 4);
             http.get("$host/").then(excpectation);
             http.get("$host/index.html").then(excpectation);
+            http.get("$host/client").then(excpectation);
+            http.get("$host/client/index.html").then(excpectation);
+        });
+
+        test('Get style.css', () {
+            var excpectation = expectAsync((response) {
+                expect(response.statusCode, equals(200));
+                expect(response.body, equals('''
+h1 {
+    font-family: Helvetica Neue, Helvetica, Arial, sans-serif;
+    color: #333;
+}
+'''));
+            }, count: 2);
+            http.get("$host/style.css").then(excpectation);
+            http.get("$host/client/style.css").then(excpectation);
         });
 
         test('Unspecified route', () {

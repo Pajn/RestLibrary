@@ -52,14 +52,15 @@ class HttpTransport {
     /// If any uncaught exception is caught it will return a 500 Internal server Error.
     void _handle(HttpRequest request) {
         _setHeaders(request);
+        var clientRoute;
         
         // Don't allow navigating up paths.
         if (request.uri.path.split('/').contains('..')) {
             _send404(request);
         } else if (_webSocketPath != null && request.uri.path == _webSocketPath && WebSocketTransformer.isUpgradeRequest(request)) {
             _webSocketCallback(request);
-        } else if (_staticServer != null && _checkClientRoute(request)) {
-            _serveClientRoute(request);
+        } else if (_staticServer != null && (clientRoute = _checkClientRoute(request)) != null) {
+            _serveClientRoute(request, clientRoute);
         } else {
             request.toList().then((List<List<int>> buffer) {
                 var body = UTF8.decode(buffer.expand((i) => i).toList());
@@ -91,10 +92,14 @@ class HttpTransport {
         }
     }
 
-    bool _checkClientRoute(HttpRequest request) => _clientRoutes.any((alias) => request.uri.path.startsWith(alias));
+    String _checkClientRoute(HttpRequest request) =>
+            _clientRoutes.firstWhere((alias) => request.uri.path.startsWith(alias), orElse: () => null);
     
-    void _serveClientRoute(HttpRequest request) =>
-        _staticServer.serveFile(new File('$_staticPath${Platform.pathSeparator}index.html'), request);
+    void _serveClientRoute(HttpRequest request, String clientRoute) {
+        var file = request.uri.path.substring(clientRoute.length);
+        file = file.isNotEmpty ? file.replaceFirst(new RegExp(r'^\/'), '') : 'index.html';
+        _staticServer.serveFile(new File('$_staticPath${Platform.pathSeparator}$file'), request);
+    }
 
     void _send404(HttpRequest request) {
         _setHeaders(request);
