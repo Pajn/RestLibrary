@@ -23,7 +23,7 @@ class RestServer {
         _routes.add(route);
     }
     
-    /// Will call the matching route if it exists, else it will return a 404 Not Found Error.
+    /// Will call the matching route if it exists, else it will return null.
     /// If any uncaught exception is caught it will return a 500 Internal server Error.
     Future<Response> handle(Request request) {
         try {
@@ -37,15 +37,12 @@ class RestServer {
                     return response;
                 }, onError: (e) => _send500(request, e));
             } else {
-                return new Future.sync(() => _send404(request));
+                return new Future.value(null);
             }
         } catch (e) {
             return new Future.sync(() => _send500(request, e));
         }
     }
-
-    Response _send404(Request request) =>
-            new Response("Not found", status: Status.ERROR, statusCode: HttpStatus.NOT_FOUND);
 
     Response _send500(Request request, e) =>
             new Response(e.toString(), status: Status.ERROR, statusCode: HttpStatus.INTERNAL_SERVER_ERROR);

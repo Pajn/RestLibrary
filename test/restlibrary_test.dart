@@ -12,7 +12,7 @@ void main() {
             var server = new RestServer();
 
             server.handle(new Request('GET', '/')).then(expectAsync((response) {
-                expect(response.toString(), equals('{"status":"error","statusCode":404,"message":"Not found"}'));
+                expect(response, isNull);
             }));
         });
 

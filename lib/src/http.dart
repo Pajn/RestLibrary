@@ -62,8 +62,12 @@ class HttpTransport {
                     ..queryParameters = request.uri.queryParameters
                     ..body = body;
                 _server.handle(restRequest).then((response) {
-                    if (_staticServer != null && response.statusCode == HttpStatus.NOT_FOUND) {
-                        _staticServer.serveRequest(request);
+                    if (response == null) {
+                        if (_staticServer != null) {
+                            _staticServer.serveRequest(request);
+                        } else {
+                            _send404(request);
+                        }
                     } else {
                         request.response
                             ..statusCode = response.statusCode

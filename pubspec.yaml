@@ -1,5 +1,5 @@
 name: RestLibrary
-version: 0.3.0
+version: 0.3.1
 author: Rasmus Eneman
 description: A simple RestLibrary for quickly setting up a Restserver
 dependencies:
